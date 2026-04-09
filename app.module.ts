@@ -12,18 +12,22 @@ import { EmiModule } from './emi/emi.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { SmsModule } from './sms/sms.module';
 import { SmsInterceptor } from './sms/sms.interceptor';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+     ConfigModule.forRoot({
+      isGlobal: true, // ← available everywhere!
+    }),
     TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: 'localhost',
-      port: 5432,
-      username: 'postgres',       // pg username
-      password: '189730',          //  pg password
-      database: 'banking_db',     //  database name
+     type: 'postgres',
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5432'),
+      username: process.env.DB_USERNAME || 'postgres',
+      password: process.env.DB_PASSWORD || '189730',
+      database: process.env.DB_NAME || 'banking_db',
       autoLoadEntities: true,
-      synchronize: true,          // auto create tables (only for dev)
+      synchronize: true,
     }),
 
     AuthModule,
