@@ -1,20 +1,43 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Loan } from './entities/loan.entity';
 import { User } from '../user/user.entity';
+import { EmiPayment } from '../emi/entities/emi-payment.entity';
 
 @Injectable()
 export class LoanService {
+
+  // date format helper
+  private formatDate(date: any): string {
+    if (!date) return '';
+    const d = new Date(date);
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+
+  // currency format helper
+  private formatCurrency(amount: any): string {
+    if (!amount) return '₹0';
+    return `₹${Number(amount).toLocaleString('en-IN')}`;
+  }
+
   constructor(
     @InjectRepository(Loan)
     private loanRepo: Repository<Loan>,
     @InjectRepository(User)
     private userRepo: Repository<User>,
+    @InjectRepository(EmiPayment)
+    private emiRepo: Repository<EmiPayment>,
   ) {}
 
-  //proccess of loan offer
-
+  //loan offer process
   async getLoanOffer(userId: number, requestedAmount: number): Promise<any> {
     const parsedUserId = parseInt(String(userId));
     const parsedAmount = parseInt(String(requestedAmount));
@@ -24,40 +47,43 @@ export class LoanService {
     });
 
     if (!user) {
-      throw new BadRequestException('User not found');
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
 
     if (!user.isEmploymentApproved) {
-      throw new BadRequestException('User employment not approved yet');
+      throw new HttpException(
+        'User employment not approved yet',
+        HttpStatus.FORBIDDEN,
+      );
     }
 
     const salary = user.salary;
 
     if (parsedAmount < 10000 || parsedAmount > 100000) {
-      throw new BadRequestException('Loan amount must be between 10,000 and 1,00,000');
+      throw new HttpException(
+        'Loan amount must be between 10,000 and 1,00,000',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     let approvedAmount: number;
-
-    if (salary < 50000) {
+    if (salary <= 50000) {
       approvedAmount = salary * 0.25;
     } else {
       approvedAmount = parsedAmount;
     }
 
     const interestRate = 10;
-    const emiCount = salary < 50000 ? 3 : 4;
+    const emiCount = salary <= 50000 ? 3 : 4;
     const totalInterest = (approvedAmount * interestRate) / 100;
     const totalRepayment = approvedAmount + totalInterest;
     const emiAmount = totalRepayment / emiCount;
 
-    // Check if loan already exists for this user
     let loan = await this.loanRepo.findOne({
       where: { userId: parsedUserId }
     });
 
     if (loan) {
-      // Update existing loan - same userId
       loan.requestedAmount = parsedAmount;
       loan.approvedAmount = approvedAmount;
       loan.salary = salary;
@@ -67,7 +93,6 @@ export class LoanService {
       loan.totalRepayment = parseFloat(totalRepayment.toFixed(2));
       loan.status = 'active';
     } else {
-      // Create new loan - new userId
       loan = this.loanRepo.create({
         userId: parsedUserId,
         requestedAmount: parsedAmount,
@@ -84,108 +109,338 @@ export class LoanService {
     await this.loanRepo.save(loan);
 
     return {
+      success: true,
+      statusCode: HttpStatus.CREATED,
       message: 'Loan offer generated successfully',
-      data:{
-      userId: parsedUserId,
-      salary,
-      requestedAmount: parsedAmount,
-      approvedAmount,
-      interestRate: `${interestRate}%`,
-      emiCount,
-      emiAmount: parseFloat(emiAmount.toFixed(2)),
-      totalRepayment: parseFloat(totalRepayment.toFixed(2)),
-      status: 'active',
+      data: {
+        userId: parsedUserId,
+        salary: this.formatCurrency(salary),
+        requestedAmount: this.formatCurrency(parsedAmount),
+        approvedAmount: this.formatCurrency(approvedAmount),
+        interestRate: `${interestRate}%`,
+        emiCount,
+        emiAmount: this.formatCurrency(parseFloat(emiAmount.toFixed(2))),
+        totalRepayment: this.formatCurrency(parseFloat(totalRepayment.toFixed(2))),
+        status: 'active',
       },
     };
   }
 
+  //loan history
   async getLoanHistory(userId: number): Promise<any> {
     const loans = await this.loanRepo.find({
       where: { userId: parseInt(String(userId)) },
     });
 
     if (!loans || loans.length === 0) {
-      throw new BadRequestException('No loan history found for this user');
+      throw new HttpException(
+        'No loan history found for this user',
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     return {
+      success: true,
+      statusCode: HttpStatus.OK,
       message: 'Loan history fetched successfully',
-      data:{
-      userId,
-      totalLoans: loans.length,
-      loans,
+      data: {
+        userId,
+        totalLoans: loans.length,
+        loans,
       },
     };
   }
 
-  async getUnpaidLoans():Promise<any> {
-    const loans=await this.loanRepo.find({
-      where: { status:'active'},
+  //unpaid loans
+  async getUnpaidLoans(): Promise<any> {
+    const loans = await this.loanRepo.find({
+      where: { status: 'active' },
     });
 
-    return{ 
-      message:'Unpaid loans fetched successfully',
-      data:{
-      totalUnpaid:loans.length,
-      loans,
+    if (!loans || loans.length === 0) {
+      throw new HttpException(
+        'No unpaid loans found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Unpaid loans fetched successfully',
+      data: {
+        totalUnpaid: loans.length,
+        loans,
       },
     };
   }
 
-  //craeting report for loan
+  // loan report with pagination + all filters + emi due date
+  async getLoanReport(
+    page: number = 1,
+    limit: number = 10,
+    startDate?: string,
+    endDate?: string,
+    name?: string,
+    loanId?: number,
+    mobileNumber?: string,
+    status?: string,
+    emiId?: number,
+    emiDueDate?: string,
+  ): Promise<any> {
 
- async getLoanReport(
-  startDate?: string,
-  endDate?: string,
-  name?: string,
-  loanId?: number,
-  mobileNumber?: string,
-  status?: string,
-): Promise<any> {
-  const query = this.loanRepo
-    .createQueryBuilder('loan')
-    .leftJoin('user', 'user', 'user.id = loan.userId')
-    .addSelect([
-      'user.id',
-      'user.name',
-      'user.mobileNumber',                                                                                                                                                                                                                                                                           
-    ]);
+    const parsedPage = parseInt(String(page)) || 1;
+    const parsedLimit = parseInt(String(limit)) || 10;
+    const skip = (parsedPage - 1) * parsedLimit;
 
-  if (startDate && endDate) {
-    query.andWhere('loan.createdAt BETWEEN :startDate AND :endDate', {
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
+    // Step 1: Build loan query with user details
+    const query = this.loanRepo.createQueryBuilder('loan')
+      .leftJoin(User, 'user', 'user.id = loan.userId')
+      .select('loan.id', 'loanId')
+      .addSelect('loan.userId', 'userId')
+      .addSelect('loan.requestedAmount', 'requestedAmount')
+      .addSelect('loan.approvedAmount', 'approvedAmount')
+      .addSelect('loan.salary', 'salary')
+      .addSelect('loan.interestRate', 'interestRate')
+      .addSelect('loan.emiCount', 'emiCount')
+      .addSelect('loan.emiAmount', 'emiAmount')
+      .addSelect('loan.totalRepayment', 'totalRepayment')
+      .addSelect('loan.status', 'loanStatus')
+      .addSelect('loan.createdAt', 'loanCreatedAt')
+      .addSelect('user.name', 'userName')
+      .addSelect('user.mobileNumber', 'mobileNumber');
+
+    // Step 2: Apply filters
+    if (startDate && endDate) {
+      query.andWhere('loan.createdAt BETWEEN :startDate AND :endDate', {
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+      });
+    }
+
+    if (loanId) {
+      query.andWhere('loan.id = :loanId', { loanId });
+    }
+
+    if (status) {
+      query.andWhere('loan.status = :status', { status });
+    }
+
+    if (name) {
+      query.andWhere('user.name ILIKE :name', { name: `%${name}%` });
+    }
+
+    if (mobileNumber) {
+      query.andWhere('user.mobileNumber = :mobileNumber', { mobileNumber });
+    }
+
+    if (emiId) {
+      query.andWhere(
+        'loan.id IN (SELECT "loanId" FROM "emi_payment" WHERE id = :emiId)',
+        { emiId }
+      );
+    }
+
+    if (emiDueDate) {
+      query.andWhere(
+        'loan.id IN (SELECT "loanId" FROM "emi_payment" WHERE DATE("dueDate") = :emiDueDate)',
+        { emiDueDate }
+      );
+    }
+
+    // Step 3: Get total count for pagination
+    const totalLoans = await query.getCount();
+    const totalPages = Math.ceil(totalLoans / parsedLimit);
+
+    // Step 4: Apply pagination
+    query.skip(skip).take(parsedLimit);
+
+    const loans = await query.getRawMany();
+
+    if (!loans || loans.length === 0) {
+      throw new HttpException('No loans found', HttpStatus.NOT_FOUND);
+    }
+
+    // Step 5: For each loan fetch EMI details
+    const loanWithEmis = await Promise.all(
+      loans.map(async (loan) => {
+
+        const emis = await this.emiRepo.find({
+          where: { loanId: loan.loanId },
+          order: { emiNumber: 'ASC' },
+        });
+
+        const emiDetails = emis.map((emi) => ({
+          emiId: emi.id,
+          emiNumber: emi.emiNumber,
+          emiAmount: this.formatCurrency(emi.emiAmount),
+          penaltyAmount: this.formatCurrency(emi.penaltyAmount),
+          totalPaid: this.formatCurrency(emi.totalPaid),
+          dueDate: this.formatDate(emi.dueDate),
+          paidDate: this.formatDate(emi.paidDate),
+          status: emi.status,
+        }));
+
+        return {
+          loanId: loan.loanId,
+          userId: loan.userId,
+          userName: loan.userName,
+          mobileNumber: loan.mobileNumber,
+          loanStatus: loan.loanStatus,
+          requestedAmount: this.formatCurrency(loan.requestedAmount),
+          approvedAmount: this.formatCurrency(loan.approvedAmount),
+          salary: this.formatCurrency(loan.salary),
+          interestRate: loan.interestRate,
+          emiCount: loan.emiCount,
+          emiAmount: this.formatCurrency(loan.emiAmount),
+          totalRepayment: this.formatCurrency(loan.totalRepayment),
+          loanCreatedAt: this.formatDate(loan.loanCreatedAt),
+
+          emiDetails: {
+            totalEmis: loan.emiCount,
+            paidEmis: emiDetails.filter(
+              e => e.status === 'paid' || e.status === 'delayed'
+            ).length,
+            pendingEmis: emiDetails.filter(
+              e => e.status === 'pending'
+            ).length,
+            emis: emiDetails,
+          },
+        };
+      })
+    );
+
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Loan report fetched successfully',
+      data: {
+        totalLoans,
+        totalPages,
+        currentPage: parsedPage,
+        limit: parsedLimit,
+        loans: loanWithEmis,
+      },
+    };
+  }
+
+  // CSV report
+  async getLoanReportCsv(
+    page: number = 1,
+    limit: number = 10,
+    startDate?: string,
+    endDate?: string,
+    name?: string,
+    loanId?: number,
+    mobileNumber?: string,
+    status?: string,
+    emiId?: number,
+    emiDueDate?: string,
+  ): Promise<string> {
+
+    const report = await this.getLoanReport(
+      page,
+      limit,
+      startDate,
+      endDate,
+      name,
+      loanId,
+      mobileNumber,
+      status,
+      emiId,
+      emiDueDate,
+    );
+
+    const loans = report.data.loans;
+
+    // CSV headers
+    const csvHeaders = [
+      'Loan ID',
+      'User ID',
+      'User Name',
+      'Mobile Number',
+      'Loan Status',
+      'Requested Amount',
+      'Approved Amount',
+      'Salary',
+      'Interest Rate',
+      'EMI Count',
+      'EMI Amount',
+      'Total Repayment',
+      'Loan Created At',
+      'Total EMIs',
+      'Paid EMIs',
+      'Pending EMIs',
+      'EMI ID',
+      'EMI Number',
+      'EMI Amount',
+      'Penalty Amount',
+      'Total Paid',
+      'Due Date',
+      'Paid Date',
+      'EMI Status',
+    ].join(',');
+
+    const csvRows: string[] = [];
+
+    loans.forEach((loan: any) => {
+      if (loan.emiDetails.emis.length === 0) {
+        csvRows.push([
+          loan.loanId,
+          loan.userId,
+          loan.userName,
+          loan.mobileNumber,
+          loan.loanStatus,
+          loan.requestedAmount,
+          loan.approvedAmount,
+          loan.salary,
+          loan.interestRate,
+          loan.emiCount,
+          loan.emiAmount,
+          loan.totalRepayment,
+          loan.loanCreatedAt,
+          loan.emiDetails.totalEmis,
+          loan.emiDetails.paidEmis,
+          loan.emiDetails.pendingEmis,
+          '', '', '', '', '', '', '', '',
+        ].join(','));
+      } else {
+        loan.emiDetails.emis.forEach((emi: any) => {
+          csvRows.push([
+            loan.loanId,
+            loan.userId,
+            loan.userName,
+            loan.mobileNumber,
+            loan.loanStatus,
+            loan.requestedAmount,
+            loan.approvedAmount,
+            loan.salary,
+            loan.interestRate,
+            loan.emiCount,
+            loan.emiAmount,
+            loan.totalRepayment,
+            loan.loanCreatedAt,
+            loan.emiDetails.totalEmis,
+            loan.emiDetails.paidEmis,
+            loan.emiDetails.pendingEmis,
+            emi.emiId,
+            emi.emiNumber,
+            emi.emiAmount,
+            emi.penaltyAmount,
+            emi.totalPaid,
+            emi.dueDate,
+            emi.paidDate ?? '',
+            emi.status,
+          ].join(','));
+        });
+      }
     });
+
+    return [csvHeaders, ...csvRows].join('\n');
   }
-
-  if (loanId) {
-    query.andWhere('loan.id = :loanId', { loanId });
-  }
-
-  if (status) {
-    query.andWhere('loan.status = :status', { status });
-  }
-
-  if (name) {
-    query.andWhere('user.name ILIKE :name', { name: `%${name}%` });
-  }
-
-  if (mobileNumber) {
-    query.andWhere('user.mobileNumber = :mobileNumber', { mobileNumber });
-  }
-
-  const loans = await query.getRawMany();
-
-  if (!loans || loans.length === 0) {
-    throw new BadRequestException('No loans found');
-  }
-
-  return {
-    message: 'Loan report fetched successfully',
-    data:{
-    totalLoans: loans.length,
-    loans,
-    },
-  };
- }
 }
+
+
+
+
+

@@ -13,12 +13,13 @@ const loan_controller_1 = require("./loan.controller");
 const loan_service_1 = require("./loan.service");
 const loan_entity_1 = require("./entities/loan.entity");
 const user_entity_1 = require("../user/user.entity");
+const emi_payment_entity_1 = require("../emi/entities/emi-payment.entity");
 let LoanModule = class LoanModule {
 };
 exports.LoanModule = LoanModule;
 exports.LoanModule = LoanModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([loan_entity_1.Loan, user_entity_1.User])],
+        imports: [typeorm_1.TypeOrmModule.forFeature([loan_entity_1.Loan, user_entity_1.User, emi_payment_entity_1.EmiPayment])],
         controllers: [loan_controller_1.LoanController],
         providers: [loan_service_1.LoanService],
     })

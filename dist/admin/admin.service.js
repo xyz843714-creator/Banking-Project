@@ -62,7 +62,7 @@ let AdminService = class AdminService {
     async signup(email, password) {
         const existing = await this.adminRepo.findOne({ where: { email } });
         if (existing) {
-            throw new common_1.BadRequestException('Admin already exists');
+            throw new common_1.HttpException('Admin already exists', common_1.HttpStatus.CONFLICT);
         }
         const hashedPassword = crypto
             .createHash('md5')
@@ -72,51 +72,56 @@ let AdminService = class AdminService {
         await this.adminRepo.save(admin);
         return {
             success: true,
+            statusCode: common_1.HttpStatus.CREATED,
+            message: 'Admin registered successfully',
             data: {
-                message: 'Admin registered successfully'
-            }
+                email: admin.email,
+            },
         };
     }
     async login(email, password) {
         const admin = await this.adminRepo.findOne({ where: { email } });
         if (!admin) {
-            throw new common_1.UnauthorizedException('Invalid credentials');
+            throw new common_1.HttpException('Admin not found', common_1.HttpStatus.NOT_FOUND);
         }
         const hashedInputPassword = crypto
             .createHash('md5')
             .update(password)
             .digest('hex');
         if (admin.password !== hashedInputPassword) {
-            throw new common_1.UnauthorizedException('Invalid credentials');
+            throw new common_1.HttpException('Invalid credentials', common_1.HttpStatus.UNAUTHORIZED);
         }
         const token = this.jwtService.sign({ id: admin.id, email: admin.email });
         return {
             success: true,
+            statusCode: common_1.HttpStatus.OK,
+            message: 'Login successful',
             data: {
-                message: 'Login successful',
                 token,
             },
         };
     }
     async approveEmployment(userId, salary) {
-        console.log('Looking for userId:', userId);
         const user = await this.userRepo.findOne({ where: { id: userId } });
-        console.log('Found user:', user);
         if (!user) {
-            throw new common_1.BadRequestException('User not found');
+            throw new common_1.HttpException('User not found', common_1.HttpStatus.NOT_FOUND);
+        }
+        if (!salary) {
+            throw new common_1.HttpException('Salary is required', common_1.HttpStatus.BAD_REQUEST);
         }
         user.isEmploymentApproved = true;
         user.salary = salary;
         await this.userRepo.save(user);
         return {
+            success: true,
+            statusCode: common_1.HttpStatus.OK,
             message: 'User employment approved successfully',
             data: {
                 userId,
-                salary
+                salary,
             },
         };
     }
-    ;
 };
 exports.AdminService = AdminService;
 exports.AdminService = AdminService = __decorate([

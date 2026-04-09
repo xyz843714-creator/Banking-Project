@@ -38,31 +38,68 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BankService = void 0;
-const common_1 = require("@nestjs/common");
 const path_1 = require("path");
 const fs = __importStar(require("fs"));
+const common_1 = require("@nestjs/common");
+const axios_1 = __importDefault(require("axios"));
+const FormData = require('form-data');
 let BankService = class BankService {
+    async uploadStatement(file, bankCode) {
+        try {
+            if (!file) {
+                throw new common_1.HttpException('File is required', common_1.HttpStatus.BAD_REQUEST);
+            }
+            if (!bankCode) {
+                throw new common_1.HttpException('Bank code is required', common_1.HttpStatus.BAD_REQUEST);
+            }
+            const fd = new FormData();
+            fd.append('file', file.buffer, file.originalname);
+            fd.append('bankCode', bankCode);
+            const response = await axios_1.default.post('http://localhost:9000/api/v1/statement/extractDataBank', fd, { headers: fd.getHeaders() });
+            return {
+                success: true,
+                statusCode: common_1.HttpStatus.OK,
+                message: 'PDF uploaded successfully',
+                data: {
+                    filename: file.originalname,
+                    requestId: response.data.request_id,
+                },
+            };
+        }
+        catch (error) {
+            throw new common_1.HttpException(error.message || 'Failed to upload statement', common_1.HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
     async addTransaction(body, user) {
+        if (!body) {
+            throw new common_1.HttpException('Transaction data is required', common_1.HttpStatus.BAD_REQUEST);
+        }
         return {
+            success: true,
+            statusCode: common_1.HttpStatus.CREATED,
             message: 'Transaction added successfully',
-            data: body,
-            user: user,
+            data: {
+                body,
+                user,
+            },
         };
     }
     async sendStatementPdf(res) {
         const filePath = (0, path_1.join)(process.cwd(), 'uploads', 'sample.pdf');
         if (!fs.existsSync(filePath)) {
-            return res.status(404).json({
+            return res.status(common_1.HttpStatus.NOT_FOUND).json({
+                success: false,
+                statusCode: common_1.HttpStatus.NOT_FOUND,
                 message: 'PDF file not found',
-                path: filePath,
             });
         }
         return res.sendFile(filePath, {
-            headers: {
-                'Content-Type': 'application/pdf',
-            },
+            headers: { 'Content-Type': 'application/pdf' },
         });
     }
 };

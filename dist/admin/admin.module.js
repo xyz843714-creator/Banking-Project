@@ -22,7 +22,7 @@ exports.AdminModule = AdminModule = __decorate([
         imports: [
             typeorm_1.TypeOrmModule.forFeature([admin_entity_1.Admin, user_entity_1.User]),
             jwt_1.JwtModule.register({
-                secret: 'your-secret-key',
+                secret: 'mySecretKey',
                 signOptions: { expiresIn: '24h' },
             }),
         ],

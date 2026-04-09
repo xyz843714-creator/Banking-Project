@@ -9,6 +9,9 @@ import { StatementModule } from './statement/statement.module';
 import { AdminModule } from './admin/admin.module';
 import { LoanModule } from './loan/loan.module';
 import { EmiModule } from './emi/emi.module';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { SmsModule } from './sms/sms.module';
+import { SmsInterceptor } from './sms/sms.interceptor';
 
 @Module({
   imports: [
@@ -16,9 +19,9 @@ import { EmiModule } from './emi/emi.module';
       type: 'postgres',
       host: 'localhost',
       port: 5432,
-      username: 'postgres',       // your pg username
-      password: '189730',          // your pg password
-      database: 'banking_db',     // your database name
+      username: 'postgres',       // pg username
+      password: '189730',          //  pg password
+      database: 'banking_db',     //  database name
       autoLoadEntities: true,
       synchronize: true,          // auto create tables (only for dev)
     }),
@@ -31,7 +34,14 @@ import { EmiModule } from './emi/emi.module';
     StatementModule,
     AdminModule,
     LoanModule,
-    EmiModule
+    EmiModule,
+    SmsModule,
+  ],
+  providers:[
+    {
+      provide:APP_INTERCEPTOR,
+      useClass:SmsInterceptor,
+    },
   ],
 })
 export class AppModule {}

@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.KycController = void 0;
 const common_1 = require("@nestjs/common");
+const passport_1 = require("@nestjs/passport");
 const kyc_service_1 = require("./kyc.service");
 let KycController = class KycController {
     constructor(kycService) {
@@ -29,6 +30,8 @@ let KycController = class KycController {
 exports.KycController = KycController;
 __decorate([
     (0, common_1.Post)('add'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -36,6 +39,8 @@ __decorate([
 ], KycController.prototype, "add", null);
 __decorate([
     (0, common_1.Post)('get'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),

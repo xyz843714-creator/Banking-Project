@@ -18,16 +18,18 @@ let KycService = class KycService {
         this.kycs = [];
     }
     addKyc(mobileNumber, aadhaar, pan) {
+        if (!mobileNumber) {
+            throw new common_1.HttpException('Mobile number is required', common_1.HttpStatus.BAD_REQUEST);
+        }
         if (!/^\d{12}$/.test(aadhaar)) {
-            throw new common_1.BadRequestException('Aadhaar must be 12 digits');
+            throw new common_1.HttpException('Aadhaar must be 12 digits', common_1.HttpStatus.BAD_REQUEST);
         }
         if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
-            throw new common_1.BadRequestException('Invalid PAN format');
+            throw new common_1.HttpException('Invalid PAN format', common_1.HttpStatus.BAD_REQUEST);
         }
-        const company = this.companyService.get(mobileNumber);
         const existing = this.kycs.find(k => k.mobileNumber === mobileNumber);
         if (existing) {
-            throw new common_1.BadRequestException('KYC already completed');
+            throw new common_1.HttpException('KYC already completed', common_1.HttpStatus.CONFLICT);
         }
         const kyc = {
             mobileNumber,
@@ -38,21 +40,23 @@ let KycService = class KycService {
         };
         this.kycs.push(kyc);
         return {
+            success: true,
+            statusCode: common_1.HttpStatus.CREATED,
             message: 'KYC completed successfully',
             data: kyc,
         };
     }
     getKyc(mobileNumber) {
+        if (!mobileNumber) {
+            throw new common_1.HttpException('Mobile number is required', common_1.HttpStatus.BAD_REQUEST);
+        }
         const kyc = this.kycs.find(k => k.mobileNumber === mobileNumber);
         if (!kyc) {
-            return {
-                success: false,
-                message: 'KYC not found',
-                data: null,
-            };
+            throw new common_1.HttpException('KYC not found', common_1.HttpStatus.NOT_FOUND);
         }
         return {
             success: true,
+            statusCode: common_1.HttpStatus.OK,
             message: 'KYC fetched successfully',
             data: kyc,
         };

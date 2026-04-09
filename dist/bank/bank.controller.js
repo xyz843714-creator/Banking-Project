@@ -57,19 +57,18 @@ let BankController = class BankController {
     constructor(bankService) {
         this.bankService = bankService;
     }
-    addTransaction(body, req) {
-        return this.bankService.addTransaction(body, req.user);
+    async addTransaction(body, req) {
+        return await this.bankService.addTransaction(body, req.user);
     }
-    uploadStatement(file) {
-        return {
-            message: 'PDF uploaded successfully',
-            filename: file.filename,
-        };
+    async uploadStatement(file, bankCode) {
+        return await this.bankService.uploadStatement(file, bankCode);
     }
-    getStatement(res) {
+    async getStatement(res) {
         const filePath = (0, path_1.join)(process.cwd(), 'uploads', 'sample.pdf');
         if (!fs.existsSync(filePath)) {
-            return res.status(404).json({
+            return res.status(common_1.HttpStatus.NOT_FOUND).json({
+                success: false,
+                statusCode: common_1.HttpStatus.NOT_FOUND,
                 message: 'PDF not found',
             });
         }
@@ -84,36 +83,35 @@ let BankController = class BankController {
 exports.BankController = BankController;
 __decorate([
     (0, common_1.Post)('add-transaction'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], BankController.prototype, "addTransaction", null);
 __decorate([
     (0, common_1.Post)('upload-statement'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', {
-        storage: (0, multer_1.diskStorage)({
-            destination: './uploads',
-            filename: (req, file, callback) => {
-                callback(null, 'sample' + (0, path_1.extname)(file.originalname));
-            },
-        }),
+        storage: (0, multer_1.memoryStorage)(),
     })),
     __param(0, (0, common_1.UploadedFile)()),
+    __param(1, (0, common_1.Body)('bankCode')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
 ], BankController.prototype, "uploadStatement", null);
 __decorate([
     (0, common_1.Get)('statement'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Res)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], BankController.prototype, "getStatement", null);
 exports.BankController = BankController = __decorate([
     (0, common_1.Controller)('bank'),

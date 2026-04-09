@@ -28,20 +28,20 @@ let EmiService = class EmiService {
             where: { id: parseInt(String(loanId)) },
         });
         if (!loan) {
-            throw new common_1.BadRequestException('Loan not found');
+            throw new common_1.HttpException('Loan not found', common_1.HttpStatus.NOT_FOUND);
         }
         if (loan.status === 'completed') {
-            throw new common_1.BadRequestException('Loan already completed');
+            throw new common_1.HttpException('Loan already completed', common_1.HttpStatus.BAD_REQUEST);
         }
         if (loan.status === 'defaulted') {
-            throw new common_1.BadRequestException('Loan defaulted');
+            throw new common_1.HttpException('Loan defaulted', common_1.HttpStatus.BAD_REQUEST);
         }
         const paidEmis = await this.emiRepo.find({
             where: { loanId: parseInt(String(loanId)) },
         });
         const paidCount = paidEmis.filter(e => e.status === 'paid' || e.status === 'delayed').length;
         if (paidCount >= loan.emiCount) {
-            throw new common_1.BadRequestException('All EMIs already paid');
+            throw new common_1.HttpException('All EMIs already paid', common_1.HttpStatus.BAD_REQUEST);
         }
         const emiNumber = paidCount + 1;
         const loanCreatedAt = new Date(loan.createdAt);
@@ -71,6 +71,8 @@ let EmiService = class EmiService {
             await this.loanRepo.save(loan);
         }
         return {
+            success: true,
+            statusCode: common_1.HttpStatus.CREATED,
             message: `EMI ${emiNumber} paid successfully`,
             data: {
                 emiNumber,
@@ -89,7 +91,7 @@ let EmiService = class EmiService {
             where: { id: parseInt(String(loanId)) },
         });
         if (!loan) {
-            throw new common_1.BadRequestException('Loan not found');
+            throw new common_1.HttpException('Loan not found', common_1.HttpStatus.NOT_FOUND);
         }
         const emis = await this.emiRepo.find({
             where: { loanId: parseInt(String(loanId)) },
@@ -109,6 +111,8 @@ let EmiService = class EmiService {
         }
         return {
             success: true,
+            statusCode: common_1.HttpStatus.OK,
+            message: timeLeft <= 0 ? 'Loan time finished' : `${timeLeft} days left`,
             data: {
                 loanId,
                 loanStatus: loan.status,
@@ -119,7 +123,6 @@ let EmiService = class EmiService {
                 nextDueDate: remainingEmis > 0 ? nextDueDate : null,
                 loanEndDate,
                 daysLeft: timeLeft > 0 ? timeLeft : 0,
-                message: timeLeft <= 0 ? 'Loan time finished' : `${timeLeft} days left`,
             },
         };
     }
@@ -128,9 +131,11 @@ let EmiService = class EmiService {
             where: { loanId: parseInt(String(loanId)) },
         });
         if (!emis || emis.length === 0) {
-            throw new common_1.BadRequestException('No EMI history found');
+            throw new common_1.HttpException('No EMI history found', common_1.HttpStatus.NOT_FOUND);
         }
         return {
+            success: true,
+            statusCode: common_1.HttpStatus.OK,
             message: 'EMI history fetched successfully',
             data: {
                 loanId,

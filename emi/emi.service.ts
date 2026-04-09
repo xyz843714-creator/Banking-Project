@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EmiPayment } from './entities/emi-payment.entity';
@@ -13,50 +13,58 @@ export class EmiService {
     private loanRepo: Repository<Loan>,
   ) {}
 
-  // its show what things needed for emipay
-
   async payEmi(loanId: number, userId: number): Promise<any> {
     const loan = await this.loanRepo.findOne({
       where: { id: parseInt(String(loanId)) },
     });
 
     if (!loan) {
-      throw new BadRequestException('Loan not found');
+      throw new HttpException(
+        'Loan not found',
+        HttpStatus.NOT_FOUND, // 404
+      );
     }
 
-    //loan condition
-
     if (loan.status === 'completed') {
-      throw new BadRequestException('Loan already completed');
+      throw new HttpException(
+        'Loan already completed',
+        HttpStatus.BAD_REQUEST, // 400
+      );
     }
 
     if (loan.status === 'defaulted') {
-      throw new BadRequestException('Loan defaulted');
+      throw new HttpException(
+        'Loan defaulted',
+        HttpStatus.BAD_REQUEST, // 400
+      );
     }
 
-    // Get all paid EMIs
-
+    //counting paid emi
+    
     const paidEmis = await this.emiRepo.find({
       where: { loanId: parseInt(String(loanId)) },
     });
 
-    const paidCount = paidEmis.filter(e => e.status === 'paid' || e.status === 'delayed').length;
+    const paidCount = paidEmis.filter(
+      e => e.status === 'paid' || e.status === 'delayed',
+    ).length;
 
     if (paidCount >= loan.emiCount) {
-      throw new BadRequestException('All EMIs already paid');
+      throw new HttpException(
+        'All EMIs already paid',
+        HttpStatus.BAD_REQUEST, // 400
+      );
     }
 
     const emiNumber = paidCount + 1;
 
-    // Calculate due date
+    //loan time
 
     const loanCreatedAt = new Date(loan.createdAt);
     const dueDate = new Date(loanCreatedAt);
     dueDate.setMonth(dueDate.getMonth() + emiNumber);
 
     const today = new Date();
-
-    // Check if delayed
 
     const isDelayed = today > dueDate;
     const penaltyAmount = isDelayed
@@ -83,29 +91,29 @@ export class EmiService {
 
     await this.emiRepo.save(emi);
 
-    // Check if all EMIs paid
-
     if (emiNumber === loan.emiCount) {
       loan.status = 'completed';
       await this.loanRepo.save(loan);
     }
 
     return {
+      success: true,
+      statusCode: HttpStatus.CREATED, // 201
       message: `EMI ${emiNumber} paid successfully`,
-      data:{
-      emiNumber,
-      emiAmount: loan.emiAmount,
-      penaltyAmount,
-      totalPaid,
-      dueDate,
-      paidDate: today,
-      status: emiStatus,
-      loanStatus: emiNumber === loan.emiCount ? 'completed' : 'active',
+      data: {
+        emiNumber,
+        emiAmount: loan.emiAmount,
+        penaltyAmount,
+        totalPaid,
+        dueDate,
+        paidDate: today,
+        status: emiStatus,
+        loanStatus: emiNumber === loan.emiCount ? 'completed' : 'active',
       },
     };
   }
 
-  // used to showing emi status 
+  //emi status 
 
   async getEmiStatus(loanId: number): Promise<any> {
     const loan = await this.loanRepo.findOne({
@@ -113,12 +121,17 @@ export class EmiService {
     });
 
     if (!loan) {
-      throw new BadRequestException('Loan not found');
+      throw new HttpException(
+        'Loan not found',
+        HttpStatus.NOT_FOUND, // 404
+      );
     }
 
     const emis = await this.emiRepo.find({
       where: { loanId: parseInt(String(loanId)) },
     });
+
+//counting time of loan and emi count
 
     const paidCount = emis.filter(
       e => e.status === 'paid' || e.status === 'delayed',
@@ -126,13 +139,9 @@ export class EmiService {
 
     const remainingEmis = loan.emiCount - paidCount;
 
-    // Calculate next due date
-
     const loanCreatedAt = new Date(loan.createdAt);
     const nextDueDate = new Date(loanCreatedAt);
     nextDueDate.setMonth(nextDueDate.getMonth() + paidCount + 1);
-
-    // Calculate loan end date
 
     const loanEndDate = new Date(loanCreatedAt);
     loanEndDate.setMonth(loanEndDate.getMonth() + loan.emiCount);
@@ -142,33 +151,30 @@ export class EmiService {
       (loanEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
     );
 
-    // Check if defaulted
-
     if (today > loanEndDate && loan.status !== 'completed') {
       loan.status = 'defaulted';
       await this.loanRepo.save(loan);
     }
 
-    //return details of loan status
-
     return {
-      success:true,
-      data:{
-      loanId,
-      loanStatus: loan.status,
-      totalEmis: loan.emiCount,
-      paidEmis: paidCount,
-      remainingEmis,
-      emiAmount: loan.emiAmount,
-      nextDueDate: remainingEmis > 0 ? nextDueDate : null,
-      loanEndDate,
-      daysLeft: timeLeft > 0 ? timeLeft : 0,
+      success: true,
+      statusCode: HttpStatus.OK, // 200
       message: timeLeft <= 0 ? 'Loan time finished' : `${timeLeft} days left`,
+      data: {
+        loanId,
+        loanStatus: loan.status,
+        totalEmis: loan.emiCount,
+        paidEmis: paidCount,
+        remainingEmis,
+        emiAmount: loan.emiAmount,
+        nextDueDate: remainingEmis > 0 ? nextDueDate : null,
+        loanEndDate,
+        daysLeft: timeLeft > 0 ? timeLeft : 0,
       },
     };
   }
 
-  // this is for checking emi history
+  //emi history
 
   async getEmiHistory(loanId: number): Promise<any> {
     const emis = await this.emiRepo.find({
@@ -176,17 +182,20 @@ export class EmiService {
     });
 
     if (!emis || emis.length === 0) {
-      throw new BadRequestException('No EMI history found');
+      throw new HttpException(
+        'No EMI history found',
+        HttpStatus.NOT_FOUND, // 404
+      );
     }
 
-    //return user emi history
-
     return {
+      success: true,
+      statusCode: HttpStatus.OK, // 200
       message: 'EMI history fetched successfully',
-      data:{
-      loanId,
-      totalEmis: emis.length,
-      emis,
+      data: {
+        loanId,
+        totalEmis: emis.length,
+        emis,
       },
     };
   }

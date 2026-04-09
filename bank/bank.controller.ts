@@ -8,13 +8,15 @@ import {
   Res,
   UseInterceptors,
   UploadedFile,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { BankService } from './bank.service';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { memoryStorage } from 'multer';
+import { join } from 'path';
 import * as fs from 'fs';
 
 @Controller('bank')
@@ -23,39 +25,39 @@ export class BankController {
 
   // ✅ Add Transaction
   @Post('add-transaction')
+  @HttpCode(HttpStatus.CREATED) // 201
   @UseGuards(AuthGuard('jwt'))
-  addTransaction(@Body() body: any, @Request() req) {
-    return this.bankService.addTransaction(body, req.user);
+  async addTransaction(@Body() body: any, @Request() req) {
+    return await this.bankService.addTransaction(body, req.user);
   }
 
   // ✅ Upload Bank Statement PDF
   @Post('upload-statement')
+  @HttpCode(HttpStatus.OK) // 200
   @UseGuards(AuthGuard('jwt'))
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads',
-        filename: (req, file, callback) => {
-          callback(null, 'sample' + extname(file.originalname));
-        },
-      }),
+      storage: memoryStorage(),
     }),
   )
-  uploadStatement(@UploadedFile() file: Express.Multer.File) {
-    return {
-      message: 'PDF uploaded successfully',
-      filename: file.filename,
-    };
+  async uploadStatement(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('bankCode') bankCode: string,
+  ) {
+    return await this.bankService.uploadStatement(file, bankCode);
   }
 
   // ✅ Get Bank Statement PDF
   @Get('statement')
+  @HttpCode(HttpStatus.OK) // 200
   @UseGuards(AuthGuard('jwt'))
-  getStatement(@Res() res: Response) {
+  async getStatement(@Res() res: Response) {
     const filePath = join(process.cwd(), 'uploads', 'sample.pdf');
 
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({
+      return res.status(HttpStatus.NOT_FOUND).json({ // 404
+        success: false,
+        statusCode: HttpStatus.NOT_FOUND,
         message: 'PDF not found',
       });
     }
@@ -68,10 +70,3 @@ export class BankController {
     });
   }
 }
-
-
-
-
-
-
-

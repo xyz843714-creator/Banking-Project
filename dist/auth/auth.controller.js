@@ -19,6 +19,7 @@ const send_otp_dto_1 = require("./dto/send-otp.dto");
 const verify_otp_dto_1 = require("./dto/verify-otp.dto");
 const register_dto_1 = require("./dto/register.dto");
 const login_dto_1 = require("./dto/login.dto");
+const common_2 = require("@nestjs/common");
 let AuthController = class AuthController {
     constructor(authService) {
         this.authService = authService;
@@ -39,6 +40,7 @@ let AuthController = class AuthController {
 exports.AuthController = AuthController;
 __decorate([
     (0, common_1.Post)('send-otp'),
+    (0, common_2.HttpCode)(common_2.HttpStatus.OK),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [send_otp_dto_1.SendOtpDto]),
@@ -46,6 +48,7 @@ __decorate([
 ], AuthController.prototype, "sendOtp", null);
 __decorate([
     (0, common_1.Post)('verify-otp'),
+    (0, common_2.HttpCode)(common_2.HttpStatus.OK),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [verify_otp_dto_1.VerifyOtpDto]),
@@ -53,6 +56,7 @@ __decorate([
 ], AuthController.prototype, "verifyOtp", null);
 __decorate([
     (0, common_1.Post)('register'),
+    (0, common_2.HttpCode)(common_2.HttpStatus.CREATED),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [register_dto_1.RegisterDto]),
@@ -60,6 +64,7 @@ __decorate([
 ], AuthController.prototype, "register", null);
 __decorate([
     (0, common_1.Post)('login'),
+    (0, common_2.HttpCode)(common_2.HttpStatus.OK),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [login_dto_1.LoginDto]),

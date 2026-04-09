@@ -1,3 +1,4 @@
+import { HttpStatus } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Repository } from 'typeorm';
 import { User } from '../user/user.entity';
@@ -11,6 +12,7 @@ export declare class AuthService {
     constructor(jwtService: JwtService, userService: UserService, userRepository: Repository<User>);
     sendOtp(username: string, mobileNumber: string): Promise<{
         success: boolean;
+        statusCode: HttpStatus;
         message: string;
         data: {
             otp: string;
@@ -18,15 +20,24 @@ export declare class AuthService {
         };
     }>;
     verifyOtp(mobileNumber: string, otp: string): Promise<{
-        message: string;
+        success: boolean;
+        statusCode: HttpStatus;
+        data: {
+            message: string;
+        };
     }>;
+    private hashPassword;
     register(body: RegisterDto): Promise<{
+        success: boolean;
+        statusCode: HttpStatus;
         message: string;
         data: {
             mobileNumber: string;
         };
     }>;
     login(mobileNumber: string, password: string): Promise<{
+        success: boolean;
+        statusCode: HttpStatus;
         message: string;
         data: {
             access_token: string;

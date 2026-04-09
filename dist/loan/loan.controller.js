@@ -28,13 +28,20 @@ let LoanController = class LoanController {
     async getUnpaidLoans() {
         return await this.loanService.getUnpaidLoans();
     }
-    async getLoanReport(startDate, endDate, name, loanId, mobileNumber, status) {
-        return await this.loanService.getLoanReport(startDate, endDate, name, loanId, mobileNumber, status);
+    async getLoanReportCsv(res, page = 1, limit = 10, startDate, endDate, name, loanId, mobileNumber, status, emiId, emiDueDate) {
+        const csv = await this.loanService.getLoanReportCsv(page, limit, startDate, endDate, name, loanId, mobileNumber, status, emiId, emiDueDate);
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename="loan-report.csv"');
+        return res.send(csv);
+    }
+    async getLoanReport(page = 1, limit = 10, startDate, endDate, name, loanId, mobileNumber, status, emiId, emiDueDate) {
+        return await this.loanService.getLoanReport(page, limit, startDate, endDate, name, loanId, mobileNumber, status, emiId, emiDueDate);
     }
 };
 exports.LoanController = LoanController;
 __decorate([
     (0, common_1.Post)('offer'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
     __param(0, (0, common_1.Body)('userId')),
     __param(1, (0, common_1.Body)('requestedAmount')),
     __metadata("design:type", Function),
@@ -43,6 +50,7 @@ __decorate([
 ], LoanController.prototype, "getLoanOffer", null);
 __decorate([
     (0, common_1.Get)('history/:userId'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Param)('userId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Number]),
@@ -50,20 +58,43 @@ __decorate([
 ], LoanController.prototype, "getLoanHistory", null);
 __decorate([
     (0, common_1.Get)('unpaid'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], LoanController.prototype, "getUnpaidLoans", null);
 __decorate([
-    (0, common_1.Get)('report'),
-    __param(0, (0, common_1.Query)('startDate')),
-    __param(1, (0, common_1.Query)('endDate')),
-    __param(2, (0, common_1.Query)('name')),
-    __param(3, (0, common_1.Query)('loanId')),
-    __param(4, (0, common_1.Query)('mobileNumber')),
-    __param(5, (0, common_1.Query)('status')),
+    (0, common_1.Get)('report/csv'),
+    __param(0, (0, common_1.Res)()),
+    __param(1, (0, common_1.Query)('page')),
+    __param(2, (0, common_1.Query)('limit')),
+    __param(3, (0, common_1.Query)('startDate')),
+    __param(4, (0, common_1.Query)('endDate')),
+    __param(5, (0, common_1.Query)('name')),
+    __param(6, (0, common_1.Query)('loanId')),
+    __param(7, (0, common_1.Query)('mobileNumber')),
+    __param(8, (0, common_1.Query)('status')),
+    __param(9, (0, common_1.Query)('emiId')),
+    __param(10, (0, common_1.Query)('emiDueDate')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, Number, String, String]),
+    __metadata("design:paramtypes", [Object, Number, Number, String, String, String, Number, String, String, Number, String]),
+    __metadata("design:returntype", Promise)
+], LoanController.prototype, "getLoanReportCsv", null);
+__decorate([
+    (0, common_1.Get)('report'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __param(2, (0, common_1.Query)('startDate')),
+    __param(3, (0, common_1.Query)('endDate')),
+    __param(4, (0, common_1.Query)('name')),
+    __param(5, (0, common_1.Query)('loanId')),
+    __param(6, (0, common_1.Query)('mobileNumber')),
+    __param(7, (0, common_1.Query)('status')),
+    __param(8, (0, common_1.Query)('emiId')),
+    __param(9, (0, common_1.Query)('emiDueDate')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, Number, String, String, String, Number, String, String, Number, String]),
     __metadata("design:returntype", Promise)
 ], LoanController.prototype, "getLoanReport", null);
 exports.LoanController = LoanController = __decorate([

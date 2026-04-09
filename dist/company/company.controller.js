@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CompanyController = void 0;
 const common_1 = require("@nestjs/common");
+const passport_1 = require("@nestjs/passport");
 const company_service_1 = require("./company.service");
 let CompanyController = class CompanyController {
     constructor(companyService) {
@@ -23,15 +24,17 @@ let CompanyController = class CompanyController {
         const companyName = body.companyName;
         const mobileNumber = body.mobileNumber;
         const salary = body.salary;
-        return this.companyService.add(mobileNumber, companyName, salary);
+        return await this.companyService.add(mobileNumber, companyName, salary);
     }
-    get(mobileNumber) {
-        return this.companyService.get(mobileNumber);
+    async get(mobileNumber) {
+        return await this.companyService.get(mobileNumber);
     }
 };
 exports.CompanyController = CompanyController;
 __decorate([
     (0, common_1.Post)('add'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -39,10 +42,12 @@ __decorate([
 ], CompanyController.prototype, "add", null);
 __decorate([
     (0, common_1.Get)(':mobileNumber'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Param)('mobileNumber')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], CompanyController.prototype, "get", null);
 exports.CompanyController = CompanyController = __decorate([
     (0, common_1.Controller)('company'),

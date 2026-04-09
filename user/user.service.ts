@@ -1,12 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
 
 @Injectable()
 export class UserService {
-  createUser: any;
-  getAllUsers: any;
 
   constructor(
     @InjectRepository(User)
@@ -15,10 +13,31 @@ export class UserService {
 
   async create(userData: Partial<User>) {
     const user = this.userRepository.create(userData);
-    return this.userRepository.save(user);
+    return await this.userRepository.save(user);
   }
 
-  async findOne(options:any){
-    return this.userRepository.findOne(options)
+  async findOne(options: any) {
+    return await this.userRepository.findOne(options);
+  }
+
+  async getAllUsers() {
+    const users = await this.userRepository.find();
+
+    if (!users || users.length === 0) {
+      throw new HttpException(
+        'No users found',
+        HttpStatus.NOT_FOUND, // 404
+      );
+    }
+
+    return {
+      success: true,
+      statusCode: HttpStatus.OK, // 200
+      message: 'Users fetched successfully',
+      data: {
+        totalUsers: users.length,
+        users,
+      },
+    };
   }
 }

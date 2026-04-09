@@ -17,17 +17,18 @@ let UserController = class UserController {
     constructor(userService) {
         this.userService = userService;
     }
-    getUsers() {
-        return this.userService.getAllUsers();
+    async getUsers() {
+        return await this.userService.getAllUsers();
     }
 };
 exports.UserController = UserController;
 __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.Get)(),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], UserController.prototype, "getUsers", null);
 exports.UserController = UserController = __decorate([
     (0, common_1.Controller)('user'),

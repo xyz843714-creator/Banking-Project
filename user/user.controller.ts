@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -6,10 +6,11 @@ import { AuthGuard } from '@nestjs/passport';
 export class UserController {
   constructor(private userService: UserService) {}
 
-  @UseGuards(AuthGuard('jwt'))
   @Get()
-  getUsers() {
-    return this.userService.getAllUsers();
+  @HttpCode(HttpStatus.OK) // 200
+  @UseGuards(AuthGuard('jwt'))
+  async getUsers() {
+    return await this.userService.getAllUsers();
   }
 }
 

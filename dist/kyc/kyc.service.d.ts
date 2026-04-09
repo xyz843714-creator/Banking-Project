@@ -1,9 +1,12 @@
+import { HttpStatus } from '@nestjs/common';
 import { CompanyService } from '../company/company.service';
 export declare class KycService {
     private readonly companyService;
     private kycs;
     constructor(companyService: CompanyService);
     addKyc(mobileNumber: string, aadhaar: string, pan: string): {
+        success: boolean;
+        statusCode: HttpStatus;
         message: string;
         data: {
             mobileNumber: string;
@@ -15,6 +18,7 @@ export declare class KycService {
     };
     getKyc(mobileNumber: string): {
         success: boolean;
+        statusCode: HttpStatus;
         message: string;
         data: any;
     };

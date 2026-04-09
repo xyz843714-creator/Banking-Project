@@ -23,10 +23,25 @@ let UserService = class UserService {
     }
     async create(userData) {
         const user = this.userRepository.create(userData);
-        return this.userRepository.save(user);
+        return await this.userRepository.save(user);
     }
     async findOne(options) {
-        return this.userRepository.findOne(options);
+        return await this.userRepository.findOne(options);
+    }
+    async getAllUsers() {
+        const users = await this.userRepository.find();
+        if (!users || users.length === 0) {
+            throw new common_1.HttpException('No users found', common_1.HttpStatus.NOT_FOUND);
+        }
+        return {
+            success: true,
+            statusCode: common_1.HttpStatus.OK,
+            message: 'Users fetched successfully',
+            data: {
+                totalUsers: users.length,
+                users,
+            },
+        };
     }
 };
 exports.UserService = UserService;

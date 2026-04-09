@@ -1,11 +1,13 @@
-import { Controller, Post, Body, Param } from '@nestjs/common';
+import { Controller, Post, Body, Param, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('admin')
 export class AdminController {
   constructor(private adminService: AdminService) {}
 
   @Post('signup')
+  @HttpCode(HttpStatus.CREATED) // 201
   async signup(
     @Body('email') email: string,
     @Body('password') password: string,
@@ -14,6 +16,7 @@ export class AdminController {
   }
 
   @Post('login')
+  @HttpCode(HttpStatus.OK) // 200
   async login(
     @Body('email') email: string,
     @Body('password') password: string,
@@ -22,6 +25,8 @@ export class AdminController {
   }
 
   @Post('employment/approve/:userId')
+  @HttpCode(HttpStatus.OK) // 200
+  @UseGuards(AuthGuard('jwt')) //  JWT Token required
   async approveEmployment(
     @Param('userId') userId: number,
     @Body('salary') salary: number,

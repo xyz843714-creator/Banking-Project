@@ -32,19 +32,22 @@ let StatementController = class StatementController {
 exports.StatementController = StatementController;
 __decorate([
     (0, common_1.Post)('submitBankDetails'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], StatementController.prototype, "funcSubmitBankDetails", null);
 __decorate([
     (0, common_1.Post)('summary'),
-    __param(0, (0, common_1.Body)('request_id')),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    __param(0, (0, common_1.Body)('requestId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], StatementController.prototype, "summary", null);
 __decorate([
     (0, common_1.Get)('/getStatement/:requestId'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Param)('requestId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),

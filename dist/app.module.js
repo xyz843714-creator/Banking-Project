@@ -18,6 +18,9 @@ const statement_module_1 = require("./statement/statement.module");
 const admin_module_1 = require("./admin/admin.module");
 const loan_module_1 = require("./loan/loan.module");
 const emi_module_1 = require("./emi/emi.module");
+const core_1 = require("@nestjs/core");
+const sms_module_1 = require("./sms/sms.module");
+const sms_interceptor_1 = require("./sms/sms.interceptor");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -42,7 +45,14 @@ exports.AppModule = AppModule = __decorate([
             statement_module_1.StatementModule,
             admin_module_1.AdminModule,
             loan_module_1.LoanModule,
-            emi_module_1.EmiModule
+            emi_module_1.EmiModule,
+            sms_module_1.SmsModule,
+        ],
+        providers: [
+            {
+                provide: core_1.APP_INTERCEPTOR,
+                useClass: sms_interceptor_1.SmsInterceptor,
+            },
         ],
     })
 ], AppModule);

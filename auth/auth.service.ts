@@ -1,6 +1,7 @@
 import {
   Injectable,
-  BadRequestException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -8,8 +9,7 @@ import { Repository } from 'typeorm';
 import { User } from '../user/user.entity';
 import { UserService } from '../user/user.service';
 import { RegisterDto } from './dto/register.dto';
-import*as crypto from 'crypto';
-import bodyParser from 'body-parser';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -22,26 +22,38 @@ export class AuthService {
     private userRepository: Repository<User>,
   ) {}
 
+  //sending otp
+  
   async sendOtp(username: string, mobileNumber: string) {
     if (!mobileNumber) {
-      throw new BadRequestException('Mobile number is required');
+      throw new HttpException(
+        'Mobile number is required',
+        HttpStatus.BAD_REQUEST, // 400
+      );
     }
 
-    const user = await this.userService.findOne({ where: { mobileNumber } });
    
 
-    if (user) {
-      throw new BadRequestException('User already exists');
-    }
-
     if (!username) {
-      throw new BadRequestException('Username is required');
+      throw new HttpException(
+        'Username is required',
+        HttpStatus.BAD_REQUEST, // 400
+      );
     }
 
+    let user = await this.userService.findOne({
+      where:{mobileNumber},
+    });
+  
     const expiry = new Date();
     expiry.setMinutes(expiry.getMinutes() + 5);
+    if (user) {
+      user.otp=this.STATIC_OTP;
+      user.otpExpiry=expiry;
+      await this.userRepository.save(user);
+    }else{
 
-    await this.userService.create({
+     user = await this.userService.create({
       mobileNumber,
       name: username,
       password: undefined,
@@ -49,35 +61,58 @@ export class AuthService {
       otpExpiry: expiry,
       isVerified: false,
     });
+  }
 
     return {
-      success:true,
+      success: true,
+      statusCode: HttpStatus.CREATED, // 201
       message: 'OTP sent successfully',
-      data:{
-      otp: this.STATIC_OTP,
-      expiresAt: expiry,
-      }
+      data: {
+        otp: this.STATIC_OTP,
+        expiresAt: expiry,
+      },
     };
   }
+
+  //verifiyng proccess
 
   async verifyOtp(mobileNumber: string, otp: string) {
     const user = await this.userService.findOne({ where: { mobileNumber } });
 
     if (!user)
-      throw new BadRequestException('User not found');
+      throw new HttpException(
+        'User not found',
+        HttpStatus.NOT_FOUND, // 404
+      );
 
     if (user.otp !== otp)
-      throw new BadRequestException('Incorrect OTP');
+      throw new HttpException(
+        'Incorrect OTP',
+        HttpStatus.BAD_REQUEST, // 400
+      );
 
     if (new Date() > user.otpExpiry)
-      throw new BadRequestException('OTP expired');
+      throw new HttpException(
+        'OTP expired',
+        HttpStatus.BAD_REQUEST, // 400
+      );
 
     user.isVerified = true;
     await this.userRepository.save(user);
 
-    return { message: 'OTP verified successfully' };
+    return {
+      success: true,
+      statusCode: HttpStatus.OK, // 200
+      data: {
+        message: 'OTP verified successfully',
+      },
+    };
   }
 
+//registration required
+private hashPassword(password: string): string {
+  return crypto.createHash('md5').update(password).digest('hex');
+}
   async register(body: RegisterDto) {
     const hashedPassword = crypto
       .createHash('md5')
@@ -85,41 +120,63 @@ export class AuthService {
       .digest('hex');
 
     const { mobileNumber } = body;
-    const userOptions = { where: { mobileNumber: mobileNumber } };
-    const user = await this.userService.findOne(userOptions);
+    const user = await this.userService.findOne({
+      where: { mobileNumber },
+    });
 
-    if (!user || !user.isVerified)
-      throw new BadRequestException('OTP not verified');
+    if (!user)
+      throw new HttpException(
+        'User not found',
+        HttpStatus.NOT_FOUND, // 404
+      );
+
+    if (!user.isVerified)
+      throw new HttpException(
+        'OTP not verified',
+        HttpStatus.BAD_REQUEST, // 400
+      );
 
     user.password = hashedPassword;
     await this.userRepository.save(user);
 
-    return { 
-      message: 'Registration successful' ,
+    return {
+      success: true,
+      statusCode: HttpStatus.CREATED, // 201
+      message: 'Registration successful',
       data: {
         mobileNumber: user.mobileNumber,
       },
     };
   }
 
+  //login proccess
+
   async login(mobileNumber: string, password: string) {
     const user = await this.userService.findOne({ where: { mobileNumber } });
 
-    if (!user) {
-      throw new BadRequestException('User not found');
-    }
+    if (!user)
+      throw new HttpException(
+        'User not found',
+        HttpStatus.NOT_FOUND, // 404
+      );
+
     const hashedInputPassword = crypto
       .createHash('md5')
       .update(password)
       .digest('hex');
 
     if (user.password !== hashedInputPassword)
-      throw new BadRequestException('Invalid password');
+      throw new HttpException(
+        'Invalid password',
+        HttpStatus.UNAUTHORIZED, // 401
+      );
 
     const payload = { mobileNumber };
 
     return {
-      message: 'login successfully',
+      success: true,
+      statusCode: HttpStatus.OK, // 200
+      message: 'Login successful',
       data: {
         access_token: this.jwtService.sign(payload),
         userId: user.id,
@@ -127,6 +184,7 @@ export class AuthService {
       },
     };
   }
+
 }
 
 

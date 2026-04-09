@@ -58,52 +58,84 @@ const form_data_1 = __importDefault(require("form-data"));
 const fs = __importStar(require("fs"));
 const bank_statement_entity_1 = require("./entities/bank-statement.entity");
 let StatementService = class StatementService {
+    formatCurrency(amount) {
+        if (!amount)
+            return '₹0';
+        const num = parseFloat(String(amount).replace(/,/g, ''));
+        return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
     constructor(httpService, statementRepo) {
         this.httpService = httpService;
         this.statementRepo = statementRepo;
     }
     async uploadStatement() {
-        const formData = new form_data_1.default();
-        formData.append('bankCode', 'ICICI');
-        formData.append('pdfFile', fs.createReadStream('./uploads/sample.pdf'));
-        const response = await (0, rxjs_1.firstValueFrom)(this.httpService.post('http://localhost:9000/api/v1/statement/extractDataBank', formData, {
-            headers: {
-                ...formData.getHeaders(),
-                Authorization: 'Bearer your-real-token-here',
-            },
-        }));
-        return {
-            message: 'PDF uploaded successfully',
-            filename: 'sample.pdf',
-            request_id: response.data.request_id,
-        };
+        try {
+            const formData = new form_data_1.default();
+            formData.append('bankCode', 'ICICI');
+            formData.append('pdfFile', fs.createReadStream('./uploads/sample.pdf'));
+            const response = await (0, rxjs_1.firstValueFrom)(this.httpService.post('http://localhost:9000/api/v1/statement/extractDataBank', formData, {
+                headers: {
+                    ...formData.getHeaders(),
+                },
+            }));
+            return {
+                success: true,
+                statusCode: common_1.HttpStatus.OK,
+                message: 'PDF uploaded successfully',
+                data: {
+                    filename: 'sample.pdf',
+                    request_id: response.data.request_id,
+                },
+            };
+        }
+        catch (error) {
+            throw new common_1.HttpException('Failed to upload statement', common_1.HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
     async getSummaryAndSave(requestId) {
-        const response = await (0, rxjs_1.firstValueFrom)(this.httpService.post('http://localhost:9000/api/v1/statement/getExtractSummary', { request_id: requestId }, {
-            headers: {
-                Authorization: 'Bearer your-real-token-here',
-            },
-        }));
-        const data = response.data;
-        console.log('Data from mock server:', data);
-        const newStatement = this.statementRepo.create({
-            requestId: requestId,
-            accountNumber: data.account_number,
-            accountHolderName: data.account_holder_name,
-            totalCredit: data.total_credit,
-            totalDebit: data.total_debit,
-            closingBalance: data.closing_balance,
-            rawResponse: data,
-        });
-        await this.statementRepo.save(newStatement);
-        return newStatement;
+        if (!requestId) {
+            throw new common_1.HttpException('Request ID is required', common_1.HttpStatus.BAD_REQUEST);
+        }
+        try {
+            const response = await (0, rxjs_1.firstValueFrom)(this.httpService.post('http://localhost:9000/api/v1/statement/getExtractSummary', { request_id: requestId }));
+            const data = response.data;
+            const newStatement = this.statementRepo.create({
+                requestId: requestId,
+                accountNumber: data.account_number,
+                accountHolderName: data.account_holder_name,
+                totalCredit: data.total_credit,
+                totalDebit: data.total_debit,
+                closingBalance: data.closing_balance,
+                rawResponse: data,
+            });
+            await this.statementRepo.save(newStatement);
+            return {
+                success: true,
+                statusCode: common_1.HttpStatus.CREATED,
+                message: 'Bank statement saved successfully',
+                data: newStatement,
+            };
+        }
+        catch (error) {
+            throw new common_1.HttpException('Failed to get summary', common_1.HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
     async findOneStatement(requestId) {
+        if (!requestId) {
+            throw new common_1.HttpException('Request ID is required', common_1.HttpStatus.BAD_REQUEST);
+        }
         const statement = await this.statementRepo.findOne({
             where: { requestId },
         });
-        console.log('Found statement:', statement);
-        return statement;
+        if (!statement) {
+            throw new common_1.HttpException('Statement not found', common_1.HttpStatus.NOT_FOUND);
+        }
+        return {
+            success: true,
+            statusCode: common_1.HttpStatus.OK,
+            message: 'Statement fetched successfully',
+            data: statement,
+        };
     }
 };
 exports.StatementService = StatementService;

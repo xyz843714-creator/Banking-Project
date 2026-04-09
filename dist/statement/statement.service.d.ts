@@ -4,6 +4,7 @@ import { BankStatement } from './entities/bank-statement.entity';
 export declare class StatementService {
     private httpService;
     private statementRepo;
+    private formatCurrency;
     constructor(httpService: HttpService, statementRepo: Repository<BankStatement>);
     uploadStatement(): Promise<any>;
     getSummaryAndSave(requestId: string): Promise<any>;

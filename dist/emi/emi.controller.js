@@ -32,6 +32,7 @@ let EmiController = class EmiController {
 exports.EmiController = EmiController;
 __decorate([
     (0, common_1.Post)('pay'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
     __param(0, (0, common_1.Body)('loanId')),
     __param(1, (0, common_1.Body)('userId')),
     __metadata("design:type", Function),
@@ -40,6 +41,7 @@ __decorate([
 ], EmiController.prototype, "payEmi", null);
 __decorate([
     (0, common_1.Get)('status/:loanId'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Param)('loanId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Number]),
@@ -47,6 +49,7 @@ __decorate([
 ], EmiController.prototype, "getEmiStatus", null);
 __decorate([
     (0, common_1.Get)('history/:loanId'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Param)('loanId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Number]),

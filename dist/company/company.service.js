@@ -24,8 +24,29 @@ let CompanyService = class CompanyService {
         this.userRepository = userRepository;
     }
     async add(mobileNumber, name, salary) {
+        if (!mobileNumber) {
+            throw new common_1.HttpException('Mobile number is required', common_1.HttpStatus.BAD_REQUEST);
+        }
+        if (!name) {
+            throw new common_1.HttpException('Company name is required', common_1.HttpStatus.BAD_REQUEST);
+        }
+        if (!salary) {
+            throw new common_1.HttpException('Salary is required', common_1.HttpStatus.BAD_REQUEST);
+        }
         if (salary < 10000) {
-            throw new common_1.BadRequestException('Salary must be 10000 or above');
+            throw new common_1.HttpException('Salary must be 10,000 or above', common_1.HttpStatus.BAD_REQUEST);
+        }
+        const existing = await this.companyRepository.findOne({
+            where: { userMobile: mobileNumber },
+        });
+        if (existing) {
+            throw new common_1.HttpException('Company already exists for this mobile number', common_1.HttpStatus.CONFLICT);
+        }
+        const user = await this.userRepository.findOne({
+            where: { mobileNumber },
+        });
+        if (!user) {
+            throw new common_1.HttpException('User not found', common_1.HttpStatus.NOT_FOUND);
         }
         const company = this.companyRepository.create({
             companyName: name,
@@ -39,20 +60,28 @@ let CompanyService = class CompanyService {
         });
         return {
             success: true,
+            statusCode: common_1.HttpStatus.CREATED,
+            message: 'Company added successfully',
             data: {
-                message: 'Company added successfully',
+                companyName: name,
+                salary,
+                mobileNumber,
             },
         };
     }
     async get(mobileNumber) {
+        if (!mobileNumber) {
+            throw new common_1.HttpException('Mobile number is required', common_1.HttpStatus.BAD_REQUEST);
+        }
         const company = await this.companyRepository.findOne({
             where: { userMobile: mobileNumber },
         });
         if (!company) {
-            throw new common_1.NotFoundException('Company not found');
+            throw new common_1.HttpException('Company not found', common_1.HttpStatus.NOT_FOUND);
         }
         return {
             success: true,
+            statusCode: common_1.HttpStatus.OK,
             message: 'Company fetched successfully',
             data: company,
         };
