@@ -6,28 +6,26 @@ export class SmsService {
   private client;
 
   constructor() {
-this.client = Twilio(
-      'dummy_sid_placeholder',
-      'dummy_token_placeholder',
+    this.client = Twilio(
+      process.env.TWILIO_SID,
+      process.env.TWILIO_AUTH_TOKEN,
     );
   }
 
-  // SMS sending
   async sendSms(to: string, message: string) {
     try {
       const formattedNumber = to.startsWith('+') ? to : `+91${to}`;
 
       await this.client.messages.create({
         body: message,
-        from: '+17126257571', // ← Twilio number with +1
-        to: formattedNumber,  // ← +91XXXXXXXXXX
+        from: process.env.TWILIO_PHONE, // moved to env
+        to: formattedNumber,
       });
 
       console.log(`SMS sent to ${formattedNumber}`);
 
-    } catch(err) {
+    } catch (err) {
       console.error('SMS Error:', err.message);
     }
   }
 }
-
