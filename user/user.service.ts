@@ -40,4 +40,28 @@ export class UserService {
       },
     };
   }
+ async getProfile(mobileNumber:string):Promise<any>{
+  console.log(mobileNumber);
+  
+  const user=await this.userRepository.findOne({
+    where:{mobileNumber} 
+  })
+  console.log(user)
+  if(!user){
+    throw new HttpException ('user not found',HttpStatus.NOT_FOUND)
+  }
+  return{
+    success:true,
+    statusCode:HttpStatus.OK,
+    message:'user profile fetch succesfully',
+    data:{
+      id:user.id,
+      name:user.name,
+      salary:user.salary,
+      companyName:user.companyName,
+      isVerified:user.isVerified,
+      isEmploymentApproved:user.isEmploymentApproved
+    }
+  }
+}
 }

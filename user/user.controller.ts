@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Param, UseGuards } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -12,7 +12,19 @@ export class UserController {
   async getUsers() {
     return await this.userService.getAllUsers();
   }
+  
+@Get('profile/:mobileNumber')
+ @HttpCode(HttpStatus.OK)
+ @UseGuards(AuthGuard('jwt'))
+async getProfile(
+  @Param('mobileNumber') mobileNumber:string,
+){
+  console.log(mobileNumber)
+  return await this.userService.getProfile(mobileNumber)
 }
+
+}
+
 
 
 

@@ -22,7 +22,8 @@ export class LoanService {
     return `${day}-${month}-${year}`;
   }
 
-  // currency format helper
+
+
   private formatCurrency(amount: any): string {
     if (!amount) return '₹0';
     return `₹${Number(amount).toLocaleString('en-IN')}`;
@@ -35,7 +36,7 @@ export class LoanService {
     private userRepo: Repository<User>,
     @InjectRepository(EmiPayment)
     private emiRepo: Repository<EmiPayment>,
-  ) {}
+  ) { }
 
   //loan offer process
   async getLoanOffer(userId: number, requestedAmount: number): Promise<any> {
@@ -187,28 +188,15 @@ export class LoanService {
     status?: string,
     emiId?: number,
     emiDueDate?: string,
-  ): Promise<any> {
 
+  ): Promise<any> {
     const parsedPage = parseInt(String(page)) || 1;
     const parsedLimit = parseInt(String(limit)) || 10;
     const skip = (parsedPage - 1) * parsedLimit;
-
-    // Step 1: Build loan query with user details
     const query = this.loanRepo.createQueryBuilder('loan')
-      .leftJoin(User, 'user', 'user.id = loan.userId')
-      .select('loan.id', 'loanId')
-      .addSelect('loan.userId', 'userId')
-      .addSelect('loan.requestedAmount', 'requestedAmount')
-      .addSelect('loan.approvedAmount', 'approvedAmount')
-      .addSelect('loan.salary', 'salary')
-      .addSelect('loan.interestRate', 'interestRate')
-      .addSelect('loan.emiCount', 'emiCount')
-      .addSelect('loan.emiAmount', 'emiAmount')
-      .addSelect('loan.totalRepayment', 'totalRepayment')
-      .addSelect('loan.status', 'loanStatus')
-      .addSelect('loan.createdAt', 'loanCreatedAt')
-      .addSelect('user.name', 'userName')
-      .addSelect('user.mobileNumber', 'mobileNumber');
+      .leftJoinAndSelect('loan.user', 'user') // ← auto selects all user columns!
+      .orderBy('loan.createdAt', 'DESC');
+
 
     // Step 2: Apply filters
     if (startDate && endDate) {
@@ -255,7 +243,7 @@ export class LoanService {
     // Step 4: Apply pagination
     query.skip(skip).take(parsedLimit);
 
-    const loans = await query.getRawMany();
+    const loans = await query.getMany();
 
     if (!loans || loans.length === 0) {
       throw new HttpException('No loans found', HttpStatus.NOT_FOUND);
@@ -266,7 +254,7 @@ export class LoanService {
       loans.map(async (loan) => {
 
         const emis = await this.emiRepo.find({
-          where: { loanId: loan.loanId },
+          where: { loanId: loan.id },
           order: { emiNumber: 'ASC' },
         });
 
@@ -282,11 +270,13 @@ export class LoanService {
         }));
 
         return {
-          loanId: loan.loanId,
-          userId: loan.userId,
-          userName: loan.userName,
-          mobileNumber: loan.mobileNumber,
-          loanStatus: loan.loanStatus,
+          loanId: loan.id,
+          // ← user details from relation! 
+          userId: loan.user?.id,
+          userName: loan.user?.name,
+          mobileNumber: loan.user?.mobileNumber,
+
+          loanStatus: loan.status,
           requestedAmount: this.formatCurrency(loan.requestedAmount),
           approvedAmount: this.formatCurrency(loan.approvedAmount),
           salary: this.formatCurrency(loan.salary),
@@ -294,7 +284,7 @@ export class LoanService {
           emiCount: loan.emiCount,
           emiAmount: this.formatCurrency(loan.emiAmount),
           totalRepayment: this.formatCurrency(loan.totalRepayment),
-          loanCreatedAt: this.formatDate(loan.loanCreatedAt),
+          loanCreatedAt: this.formatDate(loan.createdAt),
 
           emiDetails: {
             totalEmis: loan.emiCount,
@@ -326,8 +316,6 @@ export class LoanService {
 
   // CSV report
   async getLoanReportCsv(
-    page: number = 1,
-    limit: number = 10,
     startDate?: string,
     endDate?: string,
     name?: string,
@@ -338,22 +326,28 @@ export class LoanService {
     emiDueDate?: string,
   ): Promise<string> {
 
+
     const report = await this.getLoanReport(
-      page,
-      limit,
-      startDate,
-      endDate,
-      name,
-      loanId,
-      mobileNumber,
-      status,
-      emiId,
-      emiDueDate,
+      1, 10000,  // get all records
+      startDate, endDate, name, loanId,
+      mobileNumber, status, emiId, emiDueDate,
     );
 
     const loans = report.data.loans;
 
-    // CSV headers
+    const q = (val: any): string => {
+      if (val === null || val === undefined || val === '') return '""';
+      return `"${String(val).replace(/"/g, '""')}"`;
+    };
+
+    const fmtNum = (val: any): string => {
+      if (val === null || val === undefined || val === '') return '';
+      const n = Number(String(val).replace(/,/g, ''));
+      return isNaN(n) ? String(val) : String(n);
+    };
+
+
+
     const csvHeaders = [
       'Loan ID',
       'User ID',
@@ -373,72 +367,99 @@ export class LoanService {
       'Pending EMIs',
       'EMI ID',
       'EMI Number',
-      'EMI Amount',
+      'EMI Amount (EMI)',
       'Penalty Amount',
       'Total Paid',
       'Due Date',
       'Paid Date',
       'EMI Status',
-    ].join(',');
+    ].map(q).join(',');
 
     const csvRows: string[] = [];
 
     loans.forEach((loan: any) => {
-      if (loan.emiDetails.emis.length === 0) {
+      const loanCols = [
+        q(loan.loanId),
+        q(loan.userId),
+        q(loan.userName),
+        q(loan.mobileNumber),
+        q(loan.loanStatus),
+        q(fmtNum(loan.requestedAmount)),
+        q(fmtNum(loan.approvedAmount)),
+        q(fmtNum(loan.salary)),
+        q(fmtNum(loan.interestRate)),
+        q(fmtNum(loan.emiCount)),
+        q(fmtNum(loan.emiAmount)),
+        q(fmtNum(loan.totalRepayment)),
+        q(loan.loanCreatedAt),
+        q(loan.emiDetails.totalEmis),
+        q(loan.emiDetails.paidEmis),
+        q(loan.emiDetails.pendingEmis),
+      ];
+
+      if (!loan.emiDetails.emis || loan.emiDetails.emis.length === 0) {
         csvRows.push([
-          loan.loanId,
-          loan.userId,
-          loan.userName,
-          loan.mobileNumber,
-          loan.loanStatus,
-          loan.requestedAmount,
-          loan.approvedAmount,
-          loan.salary,
-          loan.interestRate,
-          loan.emiCount,
-          loan.emiAmount,
-          loan.totalRepayment,
-          loan.loanCreatedAt,
-          loan.emiDetails.totalEmis,
-          loan.emiDetails.paidEmis,
-          loan.emiDetails.pendingEmis,
-          '', '', '', '', '', '', '', '',
+          ...loanCols,
+          q(''), q(''), q(''), q(''), q(''), q(''), q(''), q(''),
         ].join(','));
       } else {
         loan.emiDetails.emis.forEach((emi: any) => {
           csvRows.push([
-            loan.loanId,
-            loan.userId,
-            loan.userName,
-            loan.mobileNumber,
-            loan.loanStatus,
-            loan.requestedAmount,
-            loan.approvedAmount,
-            loan.salary,
-            loan.interestRate,
-            loan.emiCount,
-            loan.emiAmount,
-            loan.totalRepayment,
-            loan.loanCreatedAt,
-            loan.emiDetails.totalEmis,
-            loan.emiDetails.paidEmis,
-            loan.emiDetails.pendingEmis,
-            emi.emiId,
-            emi.emiNumber,
-            emi.emiAmount,
-            emi.penaltyAmount,
-            emi.totalPaid,
-            emi.dueDate,
-            emi.paidDate ?? '',
-            emi.status,
+            ...loanCols,
+            q(emi.emiId),
+            q(emi.emiNumber),
+            q(fmtNum(emi.emiAmount)),
+            q(fmtNum(emi.penaltyAmount)),
+            q(fmtNum(emi.totalPaid)),
+            q(emi.dueDate),
+            q(emi.paidDate),
+            q(emi.status),
           ].join(','));
         });
       }
     });
 
-    return [csvHeaders, ...csvRows].join('\n');
+
+    const SEP = 'sep=,';
+
+    return [SEP, csvHeaders, ...csvRows].join('\n');
+  }
+
+  async getLoanSummary(userId: number): Promise<any> {
+    const parsedUserId = parseInt(String(userId));
+    const loans = await this.loanRepo.find({
+      where: { userId: parsedUserId }
+    });
+
+    if (!loans || loans.length === 0) {
+      throw new HttpException('no loans found for this user', HttpStatus.NOT_FOUND)
+    }
+    const activeLoans = loans.filter(
+      loan => loan.status === 'active'
+    ).length;
+    const defaultedLoans = loans.filter(
+      loan => loan.status === 'defaulted'
+    ).length;
+    const totalAmount = loans.reduce(
+      (total, loan) => total + Number(loan.approvedAmount), 0
+    );
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Loan summary fetched successfully',
+      data: {
+        userId: parsedUserId,
+        totalLoans: loans.length,
+        activeLoans,
+        defaultedLoans,
+        totalApprovedAmount: `₹${totalAmount.toLocaleString('en-IN')}`
+      },
+    };
   }
 }
+
+
+
 
 
 

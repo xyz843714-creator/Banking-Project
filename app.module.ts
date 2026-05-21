@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { LoggerMiddleware } from './common/logger.middleware';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
@@ -12,15 +13,12 @@ import { EmiModule } from './emi/emi.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { SmsModule } from './sms/sms.module';
 import { SmsInterceptor } from './sms/sms.interceptor';
-import { ConfigModule } from '@nestjs/config';
+import { User } from './user/user.entity';
 
 @Module({
   imports: [
-     ConfigModule.forRoot({
-      isGlobal: true, // ← available everywhere!
-    }),
     TypeOrmModule.forRoot({
-     type: 'postgres',
+      type: 'postgres',
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432'),
       username: process.env.DB_USERNAME || 'postgres',
@@ -29,6 +27,8 @@ import { ConfigModule } from '@nestjs/config';
       autoLoadEntities: true,
       synchronize: true,
     }),
+
+    TypeOrmModule.forFeature([User]), // ← add this!
 
     AuthModule,
     UserModule,
@@ -41,15 +41,20 @@ import { ConfigModule } from '@nestjs/config';
     EmiModule,
     SmsModule,
   ],
-  providers:[
+  providers: [
     {
-      provide:APP_INTERCEPTOR,
-      useClass:SmsInterceptor,
+      provide: APP_INTERCEPTOR,
+      useClass: SmsInterceptor,
     },
   ],
 })
-export class AppModule {}
-
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(LoggerMiddleware)
+      .forRoutes('*'); // ← all routes!
+  }
+}
 
 
 

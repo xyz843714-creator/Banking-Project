@@ -171,7 +171,9 @@ private hashPassword(password: string): string {
         HttpStatus.UNAUTHORIZED, // 401
       );
 
-    const payload = { mobileNumber };
+    const payload = {
+      userId:user.id,
+      mobileNumber:user.mobileNumber,}
 
     return {
       success: true,

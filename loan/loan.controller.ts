@@ -4,7 +4,7 @@ import type { Response } from 'express';
 
 @Controller('loan')
 export class LoanController {
-  constructor(private loanService: LoanService) {}
+  constructor(private loanService: LoanService) { }
 
   @Post('offer')
   @HttpCode(HttpStatus.CREATED) // 201
@@ -30,36 +30,24 @@ export class LoanController {
   // ← CSV must be BEFORE report to avoid conflict
   @Get('report/csv')
   async getLoanReportCsv(
+    @Query() query: any,
     @Res() res: Response,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-    @Query('name') name?: string,
-    @Query('loanId') loanId?: number,
-    @Query('mobileNumber') mobileNumber?: string,
-    @Query('status') status?: string,
-    @Query('emiId') emiId?: number,
-    @Query('emiDueDate') emiDueDate?: string,
   ) {
     const csv = await this.loanService.getLoanReportCsv(
-      page,
-      limit,
-      startDate,
-      endDate,
-      name,
-      loanId,
-      mobileNumber,
-      status,
-      emiId,
-      emiDueDate,
+      query.startDate,
+      query.endDate,
+      query.name,
+      query.loanId,
+      query.mobileNumber,
+      query.status,
+      query.emiId,
+      query.emiDueDate,
     );
 
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="loan-report.csv"');
-    return res.send(csv);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="loan_report.csv"');
+    res.send(csv);
   }
-
   @Get('report')
   @HttpCode(HttpStatus.OK) // 200
   async getLoanReport(
@@ -88,5 +76,6 @@ export class LoanController {
     );
   }
 }
+
 
 

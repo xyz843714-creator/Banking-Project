@@ -48,16 +48,9 @@ export class CompanyService {
     }
 
     // Check if company already exists
-    const existing = await this.companyRepository.findOne({
-      where: { userMobile: mobileNumber },
-    });
+    
 
-    if (existing) {
-      throw new HttpException(
-        'Company already exists for this mobile number',
-        HttpStatus.CONFLICT, // 409
-      );
-    }
+   
 
     // Check if user exists
     const user = await this.userRepository.findOne({

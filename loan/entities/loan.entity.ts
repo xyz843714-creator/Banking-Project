@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { User } from '../../user/user.entity';
 
 @Entity('loan')
 export class Loan {
@@ -34,6 +35,11 @@ export class Loan {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  // ← add createForeignKeyConstraints: false
+@ManyToOne(() => User, { createForeignKeyConstraints: false })
+@JoinColumn({ name: 'userId' })
+user: User;
 }
 
 
